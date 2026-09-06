@@ -64,23 +64,31 @@ class TKBConverter {
         const classDropdown = document.getElementById('classDropdown');
         const exportBtn = document.getElementById('exportBtn');
 
-        uploadArea.addEventListener('click', (e) => {
-            if (e.target !== fileInput) {
-                fileInput.click();
-            }
-        });
+        // Tối ưu cho iOS: Kích hoạt chọn file khi nhấn vào vùng upload
+        if (uploadArea && fileInput) {
+            uploadArea.addEventListener('click', (e) => {
+                if (e.target !== fileInput) {
+                    fileInput.click();
+                }
+            });
 
-        uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
-        uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-        uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
-        fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-        
+            uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
+            uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+            uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
+            fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        }
+
         if (loadUrlBtn) {
             loadUrlBtn.addEventListener('click', () => this.fetchFileFromUrl());
         }
 
-        classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
-        exportBtn.addEventListener('click', () => this.exportToWord());
+        if (classDropdown) {
+            classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportToWord());
+        }
     }
 
     handleDragOver(e) {
@@ -99,15 +107,14 @@ class TKBConverter {
         e.preventDefault();
         e.stopPropagation();
         document.getElementById('uploadArea').classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) {
             this.processFile(e.dataTransfer.files[0]);
         }
     }
 
     handleFileSelect(e) {
-        if (e.target.files.length > 0) {
+        if (e.target.files && e.target.files.length > 0) {
             this.processFile(e.target.files[0]);
-            e.target.value = '';
         }
     }
 
@@ -266,9 +273,7 @@ class TKBConverter {
 
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
 
-        // Quét các dòng nằm dưới dòng chứa tên Lớp
         for (let r = loc.row + 1; r <= range.e.r; r++) {
-            // Lấy giá trị Cột 0 (Thứ), hỗ trợ gộp ô
             const dayVal = this.getCellValue(r, 0); 
             
             let currentDay = null;
@@ -281,7 +286,6 @@ class TKBConverter {
 
             if (!currentDay) continue;
 
-            // Lấy giá trị Cột 2 (Tiết 1 -> 5)
             const tietVal = this.getCellValue(r, 2);
             const match = tietVal.match(/\d+/);
             if (!match) continue;
@@ -289,13 +293,11 @@ class TKBConverter {
             const slotIdx = parseInt(match[0]) - 1;
             if (slotIdx < 0 || slotIdx > 4) continue;
 
-            // Đọc môn học đúng cột của lớp được chọn
             const subjectVal = this.getCellValue(r, loc.col);
             if (subjectVal) {
                 schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
             }
 
-            // Nếu đọc xong tiết 5 của Thứ 6 thì dừng công việc trích xuất cho lớp này
             if (currentDay === 'Thứ 6' && slotIdx === 4) {
                 break;
             }
@@ -343,8 +345,10 @@ class TKBConverter {
     renderPreview() {
         const preview = document.getElementById('previewTable');
         preview.innerHTML = `
-            <h3 style="margin: 10px 0; color: #38bdf8;">🌆 Thời Khóa Biểu Buổi Chiều</h3>
-            ${this.buildHTMLTable(this.classData.afternoon, 'C')}
+            <h3 style="margin: 10px 0; color: #38bdf8; text-align: center;">🌆 Thời Khóa Biểu Buổi Chiều</h3>
+            <div class="preview-table-wrapper">
+                ${this.buildHTMLTable(this.classData.afternoon, 'C')}
+            </div>
         `;
     }
 

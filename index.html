@@ -24,7 +24,9 @@
                         <line x1="12" y1="3" x2="12" y2="15"></line>
                     </svg>
                     <p class="upload-text">Kéo file Excel (.xlsx) vào đây hoặc <span class="file-label">chọn file</span></p>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+                    <<input type="file" id="fileInput" 
+                            accept=".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+                            style="position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1;">
                 </div>
 
                 <!-- Ô nhập Direct Link -->
