@@ -5,7 +5,7 @@ class TKBConverter {
         this.classes = [];
         this.selectedClass = null;
         this.classData = null;
-        // Giới hạn thời khóa biểu chỉ lấy Thứ 2 đến Thứ 6
+        // Giới hạn thời khóa biểu chỉ lấy từ Thứ 2 đến Thứ 6
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
         this.isDebug = false;
         
@@ -76,7 +76,11 @@ class TKBConverter {
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         
-        loadUrlBtn.addEventListener('click', () => this.fetchFileFromUrl());
+        // Sự kiện tải từ Direct Link
+        if (loadUrlBtn) {
+            loadUrlBtn.addEventListener('click', () => this.fetchFileFromUrl());
+        }
+
         classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
         exportBtn.addEventListener('click', () => this.exportToWord());
     }
@@ -109,10 +113,11 @@ class TKBConverter {
         }
     }
 
+    // Tải file trực tiếp từ Direct Link
     async fetchFileFromUrl() {
         const urlInput = document.getElementById('fileUrlInput');
         const statusDiv = document.getElementById('fileStatus');
-        const url = urlInput.value.trim();
+        const url = urlInput ? urlInput.value.trim() : '';
 
         if (!url) {
             statusDiv.className = 'file-status error';
@@ -257,24 +262,28 @@ class TKBConverter {
         });
 
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
-        let currentDay = 'Thứ 2';
 
-        for (let r = loc.row + 1; r <= range.e.r; r++) {
-            // 1. Quét nhận diện Thứ (cột 0 đến 3)
-            for (let c = 0; c <= 3; c++) {
+        // 1. Quét tìm vị trí Cột cho từng Thứ (Thứ 2 -> Thứ 6)
+        const dayHeaderCols = {};
+        for (let r = range.s.r; r <= range.e.r; r++) {
+            for (let c = range.s.c; c <= range.e.c; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && cell.v) {
-                    const cellVal = String(cell.v).trim().toLowerCase();
-                    if (cellVal.includes('thứ 2') || cellVal.includes('t2')) currentDay = 'Thứ 2';
-                    else if (cellVal.includes('thứ 3') || cellVal.includes('t3')) currentDay = 'Thứ 3';
-                    else if (cellVal.includes('thứ 4') || cellVal.includes('t4')) currentDay = 'Thứ 4';
-                    else if (cellVal.includes('thứ 5') || cellVal.includes('t5')) currentDay = 'Thứ 5';
-                    else if (cellVal.includes('thứ 6') || cellVal.includes('t6')) currentDay = 'Thứ 6';
+                    const val = String(cell.v).trim().toLowerCase();
+                    if (val.includes('thứ 2') || val.includes('t2')) dayHeaderCols['Thứ 2'] = c;
+                    else if (val.includes('thứ 3') || val.includes('t3')) dayHeaderCols['Thứ 3'] = c;
+                    else if (val.includes('thứ 4') || val.includes('t4')) dayHeaderCols['Thứ 4'] = c;
+                    else if (val.includes('thứ 5') || val.includes('t5')) dayHeaderCols['Thứ 5'] = c;
+                    else if (val.includes('thứ 6') || val.includes('t6')) dayHeaderCols['Thứ 6'] = c;
                 }
             }
+        }
 
-            // 2. Nhận diện Tiết học 1 -> 5
+        // 2. Quét dữ liệu từng dòng từ vị trí lớp xuống
+        for (let r = loc.row + 1; r <= range.e.r; r++) {
             let slotIdx = -1;
+
+            // Xác định số Tiết (1 -> 5) từ các cột bên trái
             for (let c = 0; c <= 3; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && cell.v) {
@@ -291,13 +300,18 @@ class TKBConverter {
 
             if (slotIdx === -1) continue;
 
-            // 3. Trích xuất tên môn tại vị trí cột của lớp
-            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
-            const subjectVal = subjectCell && subjectCell.v ? String(subjectCell.v).trim() : '';
+            // 3. Trích xuất môn học theo từng cột Thứ tương ứng
+            this.days.forEach(day => {
+                const targetCol = dayHeaderCols[day] !== undefined ? dayHeaderCols[day] : loc.col;
+                const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: targetCol })];
 
-            if (subjectVal && this.days.includes(currentDay)) {
-                schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
-            }
+                if (subjectCell && subjectCell.v) {
+                    const subjectVal = String(subjectCell.v).trim();
+                    if (subjectVal) {
+                        schedule.afternoon[day][slotIdx] = this.cleanSubject(subjectVal);
+                    }
+                }
+            });
         }
 
         return schedule;
