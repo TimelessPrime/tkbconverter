@@ -372,14 +372,19 @@ class TKBConverter {
         const exportBtn = document.getElementById('exportBtn');
         const statusDiv = document.getElementById('exportStatus');
 
+        // Kiểm tra xem thư viện docx đã được tải thành công từ CDN chưa
+        const docxLib = window.docx;
+        if (!docxLib) {
+            statusDiv.className = 'status-message show error';
+            statusDiv.textContent = '🔴 Thư viện docx chưa tải xong hoặc kết nối CDN bị chặn. Vui lòng thử tải lại trang!';
+            return;
+        }
+
         exportBtn.disabled = true;
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '🔵 Đang xử lý tạo file Word...';
 
         try {
-            const docxLib = window.docx;
-            if (!docxLib) throw new Error('Thư viện docx chưa tải xong!');
-
             const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
 
             const makeTable = (data, sessionTitle) => {
