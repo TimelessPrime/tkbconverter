@@ -5,7 +5,7 @@ class TKBConverter {
         this.classes = [];
         this.selectedClass = null;
         this.classData = null;
-        // Giới hạn thời khóa biểu đến Thứ 6
+        // Giới hạn thời khóa biểu chỉ lấy Thứ 2 đến Thứ 6
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
         this.isDebug = false;
         
@@ -76,9 +76,7 @@ class TKBConverter {
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         
-        // Sự kiện tải từ Direct Link
         loadUrlBtn.addEventListener('click', () => this.fetchFileFromUrl());
-
         classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
         exportBtn.addEventListener('click', () => this.exportToWord());
     }
@@ -111,7 +109,6 @@ class TKBConverter {
         }
     }
 
-    // Tải file trực tiếp từ Direct Link
     async fetchFileFromUrl() {
         const urlInput = document.getElementById('fileUrlInput');
         const statusDiv = document.getElementById('fileStatus');
@@ -254,9 +251,8 @@ class TKBConverter {
         const loc = this.findClassLocation(className);
         if (!loc) return null;
 
-        const schedule = { morning: {}, afternoon: {} };
+        const schedule = { afternoon: {} };
         this.days.forEach(d => {
-            schedule.morning[d] = ['', '', '', '', ''];
             schedule.afternoon[d] = ['', '', '', '', ''];
         });
 
@@ -264,30 +260,29 @@ class TKBConverter {
         let currentDay = 'Thứ 2';
 
         for (let r = loc.row + 1; r <= range.e.r; r++) {
-            for (let c = 0; c <= 2; c++) {
+            // 1. Quét nhận diện Thứ (cột 0 đến 3)
+            for (let c = 0; c <= 3; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && cell.v) {
-                    const cellVal = String(cell.v).trim();
-                    const matchedDay = this.days.find(d => cellVal.toLowerCase().includes(d.toLowerCase()));
-                    if (matchedDay) {
-                        currentDay = matchedDay;
-                        break;
-                    }
+                    const cellVal = String(cell.v).trim().toLowerCase();
+                    if (cellVal.includes('thứ 2') || cellVal.includes('t2')) currentDay = 'Thứ 2';
+                    else if (cellVal.includes('thứ 3') || cellVal.includes('t3')) currentDay = 'Thứ 3';
+                    else if (cellVal.includes('thứ 4') || cellVal.includes('t4')) currentDay = 'Thứ 4';
+                    else if (cellVal.includes('thứ 5') || cellVal.includes('t5')) currentDay = 'Thứ 5';
+                    else if (cellVal.includes('thứ 6') || cellVal.includes('t6')) currentDay = 'Thứ 6';
                 }
             }
 
-            let timeVal = '';
+            // 2. Nhận diện Tiết học 1 -> 5
             let slotIdx = -1;
-            for (let c = 1; c <= 3; c++) {
+            for (let c = 0; c <= 3; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && cell.v) {
-                    const str = String(cell.v).trim();
-                    const match = str.match(/\d+/);
+                    const match = String(cell.v).trim().match(/\d+/);
                     if (match) {
                         const num = parseInt(match[0]);
                         if (num >= 1 && num <= 5) {
                             slotIdx = num - 1;
-                            timeVal = str;
                             break;
                         }
                     }
@@ -296,14 +291,12 @@ class TKBConverter {
 
             if (slotIdx === -1) continue;
 
+            // 3. Trích xuất tên môn tại vị trí cột của lớp
             const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
             const subjectVal = subjectCell && subjectCell.v ? String(subjectCell.v).trim() : '';
 
-            // Chỉ đưa vào buổi chiều
-            const session = 'afternoon';
-
-            if (subjectVal) {
-                schedule[session][currentDay][slotIdx] = this.cleanSubject(subjectVal);
+            if (subjectVal && this.days.includes(currentDay)) {
+                schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
             }
         }
 
@@ -352,7 +345,7 @@ class TKBConverter {
     renderPreview() {
         const preview = document.getElementById('previewTable');
         preview.innerHTML = `
-            <h3 style="margin:10px 0;">Chiều</h3>
+            <h3 style="margin: 10px 0; color: #38bdf8;">🌆 Thời Khóa Biểu Buổi Chiều</h3>
             ${this.buildHTMLTable(this.classData.afternoon, 'C')}
         `;
     }
