@@ -5,7 +5,8 @@ class TKBConverter {
         this.classes = [];
         this.selectedClass = null;
         this.classData = null;
-        this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        // Giới hạn thời khóa biểu đến Thứ 6
+        this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
         this.isDebug = false;
         
         this.initDebugMode();
@@ -60,6 +61,7 @@ class TKBConverter {
     initEventListeners() {
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
+        const loadUrlBtn = document.getElementById('loadUrlBtn');
         const classDropdown = document.getElementById('classDropdown');
         const exportBtn = document.getElementById('exportBtn');
 
@@ -68,10 +70,15 @@ class TKBConverter {
                 fileInput.click();
             }
         });
+
         uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
         uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        
+        // Sự kiện tải từ Direct Link
+        loadUrlBtn.addEventListener('click', () => this.fetchFileFromUrl());
+
         classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
         exportBtn.addEventListener('click', () => this.exportToWord());
     }
@@ -100,15 +107,52 @@ class TKBConverter {
     handleFileSelect(e) {
         if (e.target.files.length > 0) {
             this.processFile(e.target.files[0]);
-            // Reset giá trị input để có thể chọn lại cùng 1 file nếu cần
             e.target.value = '';
+        }
+    }
+
+    // Tải file trực tiếp từ Direct Link
+    async fetchFileFromUrl() {
+        const urlInput = document.getElementById('fileUrlInput');
+        const statusDiv = document.getElementById('fileStatus');
+        const url = urlInput.value.trim();
+
+        if (!url) {
+            statusDiv.className = 'file-status error';
+            statusDiv.textContent = '🔴 Vui lòng nhập link URL hợp lệ!';
+            return;
+        }
+
+        statusDiv.className = 'file-status info';
+        statusDiv.textContent = '🔵 Đang tải file từ URL...';
+        console.log(`🔵 Đang tải file từ link: ${url}`);
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP Error Status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            if (blob.size === 0) {
+                throw new Error('File tải về rỗng (0 bytes)');
+            }
+
+            const fileName = url.split('/').pop().split('?')[0] || 'TKB_Remote.xlsx';
+            const file = new File([blob], fileName, { type: blob.type });
+
+            console.log(`🟢 Tải file từ URL thành công với ${blob.size} bytes`);
+            this.processFile(file);
+        } catch (err) {
+            statusDiv.className = 'file-status error';
+            statusDiv.textContent = `🔴 Upload không thành công. Lỗi kết nối URL hoặc CORS: ${err.message}`;
+            console.error(`🔴 Lỗi fetch file từ URL: ${err.message}`);
         }
     }
 
     processFile(file) {
         const statusDiv = document.getElementById('fileStatus');
 
-        // Kiểm tra file rỗng hoặc 0 bytes
         if (!file || file.size === 0) {
             statusDiv.className = 'file-status error';
             statusDiv.textContent = '🔴 Upload không thành công (File rỗng - 0 bytes). Vui lòng kiểm tra lại file hoặc đóng Excel nếu đang mở!';
@@ -116,7 +160,6 @@ class TKBConverter {
             return;
         }
 
-        // 🔵 Đang đọc file
         statusDiv.className = 'file-status info';
         statusDiv.textContent = `🔵 Đang đọc file: ${file.name}...`;
         console.log(`🔵 Đang đọc file: ${file.name}`);
@@ -125,10 +168,8 @@ class TKBConverter {
         
         reader.onload = (e) => {
             try {
-                // 🟢 Đọc file thành công với bytes
                 console.log(`🟢 Đọc file thành công với ${file.size} bytes`);
 
-                // 🔵 Đang xử lý
                 statusDiv.className = 'file-status info';
                 statusDiv.textContent = '🔵 Đang xử lý dữ liệu...';
                 console.log('🔵 Đang xử lý dữ liệu Excel...');
@@ -140,20 +181,17 @@ class TKBConverter {
                 this.extractClasses();
 
                 if (this.classes.length > 0) {
-                    // 🟢 Xử lý thành công
                     statusDiv.className = 'file-status success';
                     statusDiv.textContent = `🟢 Xử lý thành công! Đã nhận diện ${this.classes.length} lớp.`;
                     console.log(`🟢 Xử lý thành công. Đã tìm thấy ${this.classes.length} lớp.`);
                     document.getElementById('classSection').style.display = 'block';
                 } else {
-                    // 🔴 Xử lý không thành công (Không tìm thấy danh sách lớp)
                     statusDiv.className = 'file-status error';
                     statusDiv.textContent = '🔴 Xử lý không thành công: Không tìm thấy dữ liệu lớp học phù hợp trong file!';
                     console.error('🔴 Xử lý không thành công: Cấu trúc file Excel không khớp với định dạng lớp.');
                 }
 
             } catch (error) {
-                // 🔴 Xử lý không thành công (Lỗi cú pháp / Đọc sheet)
                 statusDiv.className = 'file-status error';
                 statusDiv.textContent = `🔴 Xử lý không thành công: ${error.message}`;
                 console.error(`🔴 Xử lý không thành công: ${error.stack || error.message}`);
@@ -223,31 +261,49 @@ class TKBConverter {
         });
 
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
-        let lastDay = 'Thứ 2';
+        let currentDay = 'Thứ 2';
 
-        for (let r = loc.row + 1; r <= Math.min(loc.row + 55, range.e.r); r++) {
-            const dayCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 0 })];
-            const timeCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 2 })];
-            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
-
-            if (dayCell && dayCell.v && this.days.includes(String(dayCell.v).trim())) {
-                lastDay = String(dayCell.v).trim();
+        for (let r = loc.row + 1; r <= range.e.r; r++) {
+            for (let c = 0; c <= 2; c++) {
+                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
+                if (cell && cell.v) {
+                    const cellVal = String(cell.v).trim();
+                    const matchedDay = this.days.find(d => cellVal.toLowerCase().includes(d.toLowerCase()));
+                    if (matchedDay) {
+                        currentDay = matchedDay;
+                        break;
+                    }
+                }
             }
 
-            if (!timeCell || !timeCell.v) continue;
+            let timeVal = '';
+            let slotIdx = -1;
+            for (let c = 1; c <= 3; c++) {
+                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
+                if (cell && cell.v) {
+                    const str = String(cell.v).trim();
+                    const match = str.match(/\d+/);
+                    if (match) {
+                        const num = parseInt(match[0]);
+                        if (num >= 1 && num <= 5) {
+                            slotIdx = num - 1;
+                            timeVal = str;
+                            break;
+                        }
+                    }
+                }
+            }
 
-            const timeVal = String(timeCell.v).trim();
+            if (slotIdx === -1) continue;
+
+            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
             const subjectVal = subjectCell && subjectCell.v ? String(subjectCell.v).trim() : '';
 
-            const isAfternoon = r > loc.row + 25 || timeVal.includes('C');
-            const session = isAfternoon ? 'afternoon' : 'morning';
+            // Chỉ đưa vào buổi chiều
+            const session = 'afternoon';
 
-            const matchSlot = timeVal.match(/\d+/);
-            if (matchSlot) {
-                const slotIdx = parseInt(matchSlot[0]) - 1;
-                if (slotIdx >= 0 && slotIdx < 5) {
-                    schedule[session][lastDay][slotIdx] = this.cleanSubject(subjectVal);
-                }
+            if (subjectVal) {
+                schedule[session][currentDay][slotIdx] = this.cleanSubject(subjectVal);
             }
         }
 
@@ -296,9 +352,7 @@ class TKBConverter {
     renderPreview() {
         const preview = document.getElementById('previewTable');
         preview.innerHTML = `
-            <h3 style="margin-bottom:10px;">Sáng</h3>
-            ${this.buildHTMLTable(this.classData.morning, 'S')}
-            <h3 style="margin:20px 0 10px 0;">Chiều</h3>
+            <h3 style="margin:10px 0;">Chiều</h3>
             ${this.buildHTMLTable(this.classData.afternoon, 'C')}
         `;
     }
@@ -374,7 +428,6 @@ class TKBConverter {
                 sections: [{
                     children: [
                         new Paragraph({ text: `THỜI KHÓA BIỂU - LỚP ${this.selectedClass}`, bold: true, size: 32, alignment: AlignmentType.CENTER }),
-                        ...makeTable(this.classData.morning, "BUỔI SÁNG"),
                         ...makeTable(this.classData.afternoon, "BUỔI CHIỀU")
                     ]
                 }]
