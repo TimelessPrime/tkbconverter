@@ -5,7 +5,8 @@ class TKBConverter {
         this.classes = [];
         this.selectedClass = null;
         this.classData = null;
-        this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
+        // Bổ sung Thứ 7 theo đúng cấu trúc mẫu
+        this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         this.isDebug = false;
         this.fileName = '';
         this.appliedDateStr = '05/09/2026'; // Ngày mặc định nếu không tìm thấy trong tên file
@@ -150,10 +151,10 @@ class TKBConverter {
         }
     }
 
-    // Trích xuất ngày áp dụng từ tên file (Ví dụ tìm chuỗi: 05.09.2026 hoặc 05-09-2026)
+    // Trích xuất ngày áp dụng từ tên file (Ví dụ: 05.09.2026, 05_09_2026 hoặc 05-09-2026)
     extractDateFromFileName(fileName) {
         this.fileName = fileName;
-        const dateMatch = fileName.match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{4})/);
+        const dateMatch = fileName.match(/(\d{1,2})[\.\-\_\/](\d{1,2})[\.\-\_\/](\d{4})/);
         if (dateMatch) {
             const day = dateMatch[1].padStart(2, '0');
             const month = dateMatch[2].padStart(2, '0');
@@ -313,7 +314,7 @@ class TKBConverter {
                 schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
             }
 
-            if (currentDay === 'Thứ 6' && slotIdx === 4) {
+            if (currentDay === 'Thứ 7' && slotIdx === 4) {
                 break;
             }
         }
@@ -375,9 +376,9 @@ class TKBConverter {
         for (let i = 0; i < 5; i++) {
             html += `<tr>`;
             if (i === 0) {
-                html += `<td rowspan="5" style="vertical-align: middle; font-weight: bold;">${sessionLabel}</td>`;
+                html += `<td rowspan="5" style="vertical-align: middle; font-weight: bold; text-align: center;">${sessionLabel}</td>`;
             }
-            html += `<td>${i + 1}</td>`;
+            html += `<td style="text-align: center;">${i + 1}</td>`;
             this.days.forEach(d => {
                 html += `<td>${data[d][i] || ''}</td>`;
             });
@@ -387,7 +388,7 @@ class TKBConverter {
         return html;
     }
 
-    // Xuất Excel đúng chuẩn hình mẫu
+    // Xuất Excel đúng chuẩn hình mẫu & Tối ưu hóa 100% cho Android / di động
     exportToExcel() {
         const exportBtn = document.getElementById('exportBtn');
         const statusDiv = document.getElementById('exportStatus');
@@ -409,10 +410,10 @@ class TKBConverter {
 
             const headerTitle = `THỜI KHÓA BIỂU LỚP ${titleClassStr} NĂM HỌC 2026-2027 ÁP DỤNG NGÀY ${this.appliedDateStr}`;
 
-            // Cấu trúc dữ liệu mảng 2 chiều
+            // Cấu trúc dữ liệu mảng 2 chiều (8 cột: Buổi, Tiết, Thứ 2 -> Thứ 7)
             const excelData = [
-                [headerTitle, "", "", "", "", "", ""], // Row 0: Dòng tiêu đề lớn
-                ["Buổi", "Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6"] // Row 1: Header bảng
+                [headerTitle, "", "", "", "", "", "", ""], // Row 0: Dòng tiêu đề lớn
+                ["Buổi", "Tiết", ...this.days]             // Row 1: Header bảng
             ];
 
             // Thêm 5 dòng tiết cho buổi chiều (C)
@@ -427,10 +428,10 @@ class TKBConverter {
             const ws = XLSX.utils.aoa_to_sheet(excelData);
 
             // Cấu hình Merged Cells (Gộp ô):
-            // 1. Dòng 0: Gộp Cột 0 (A) -> Cột 6 (G) làm tiêu đề chính
+            // 1. Dòng 0: Gộp Cột 0 (A) -> Cột 7 (H) làm tiêu đề chính
             // 2. Cột 0 (Buổi): Gộp Dòng 2 (A3) -> Dòng 6 (A7) cho chữ C
             ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
                 { s: { r: 2, c: 0 }, e: { r: 6, c: 0 } }
             ];
 
@@ -438,17 +439,31 @@ class TKBConverter {
             ws['!cols'] = [
                 { wch: 8 },  // Buổi
                 { wch: 8 },  // Tiết
-                { wch: 16 }, // Thứ 2
-                { wch: 16 }, // Thứ 3
-                { wch: 16 }, // Thứ 4
-                { wch: 16 }, // Thứ 5
-                { wch: 16 }  // Thứ 6
+                { wch: 15 }, // Thứ 2
+                { wch: 15 }, // Thứ 3
+                { wch: 15 }, // Thứ 4
+                { wch: 15 }, // Thứ 5
+                { wch: 15 }, // Thứ 6
+                { wch: 15 }  // Thứ 7
             ];
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `TKB_Lop_${this.selectedClass}`);
 
-            XLSX.writeFile(wb, `TKB_Lop_${this.selectedClass}.xlsx`);
+            const fileName = `TKB_Lop_${this.selectedClass}.xlsx`;
+
+            // Tải file dạng Blob để hỗ trợ mượt mà trên trình duyệt di động Android
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
 
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
