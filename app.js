@@ -5,10 +5,6 @@ class TKBConverter {
         this.classes = [];
         this.selectedClass = null;
         this.classData = null;
-        this.timeSlots = {
-            morning: ['Tiết 1', 'Tiết 2', 'Tiết 3', 'Tiết 4', 'Tiết 5'],
-            afternoon: ['Tiết 1', 'Tiết 2', 'Tiết 3', 'Tiết 4', 'Tiết 5']
-        };
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         this.initEventListeners();
     }
@@ -19,17 +15,12 @@ class TKBConverter {
         const classDropdown = document.getElementById('classDropdown');
         const exportBtn = document.getElementById('exportBtn');
 
-        // Upload events
         uploadArea.addEventListener('click', () => fileInput.click());
         uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
         uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-
-        // Class selection
         classDropdown.addEventListener('change', (e) => this.handleClassSelect(e));
-
-        // Export
         exportBtn.addEventListener('click', () => this.exportToWord());
     }
 
@@ -49,23 +40,21 @@ class TKBConverter {
         e.preventDefault();
         e.stopPropagation();
         document.getElementById('uploadArea').classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            this.processFile(files[0]);
+        if (e.dataTransfer.files.length > 0) {
+            this.processFile(e.dataTransfer.files[0]);
         }
     }
 
     handleFileSelect(e) {
-        const files = e.target.files;
-        if (files.length > 0) {
-            this.processFile(files[0]);
+        if (e.target.files.length > 0) {
+            this.processFile(e.target.files[0]);
         }
     }
 
     processFile(file) {
         const statusDiv = document.getElementById('fileStatus');
         statusDiv.className = 'file-status info';
-        statusDiv.textContent = '⏳ Đang xử lý file...';
+        statusDiv.textContent = '⏳ Đang đọc file...';
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -76,13 +65,11 @@ class TKBConverter {
 
                 this.extractClasses();
                 statusDiv.className = 'file-status success';
-                statusDiv.textContent = `✅ Tải file thành công! (Tìm thấy ${this.classes.length} lớp)`;
-
-                this.showClassSection();
+                statusDiv.textContent = `✅ Đã nhận diện ${this.classes.length} lớp.`;
+                document.getElementById('classSection').style.display = 'block';
             } catch (error) {
                 statusDiv.className = 'file-status error';
-                statusDiv.textContent = `❌ Lỗi: ${error.message}`;
-                console.error('File processing error:', error);
+                statusDiv.textContent = `❌ Lỗi đọc file: ${error.message}`;
             }
         };
         reader.readAsArrayBuffer(file);
@@ -92,48 +79,37 @@ class TKBConverter {
         this.classes = [];
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
 
-        // Quét tất cả ô để tìm tên lớp
-        for (let row = range.s.r; row <= range.e.r; row++) {
-            for (let col = range.s.c; col <= range.e.c; col++) {
-                const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-                const cell = this.worksheet[cellAddress];
+        for (let r = range.s.r; r <= range.e.r; r++) {
+            for (let c = range.s.c; c <= range.e.c; c++) {
+                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && cell.v) {
-                    const value = String(cell.v).trim();
-                    // Kiểm tra format lớp: 10A1 đến 10A14
-                    if (/^10A\d+$/.test(value) && !this.classes.includes(value)) {
-                        this.classes.push(value);
+                    const val = String(cell.v).trim();
+                    if (/^10A\d+$/i.test(val) && !this.classes.includes(val)) {
+                        this.classes.push(val);
                     }
                 }
             }
         }
 
-        // Sắp xếp lớp theo thứ tự
-        this.classes.sort((a, b) => {
-            const numA = parseInt(a.match(/\d+/)[0]);
-            const numB = parseInt(b.match(/\d+/)[0]);
-            return numA - numB;
-        });
+        this.classes.sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
 
-        // Cập nhật dropdown
         const dropdown = document.getElementById('classDropdown');
-        dropdown.innerHTML = '<option value="">-- Vui lòng chọn lớp --</option>';
+        dropdown.innerHTML = '<option value="">-- Chọn lớp cần xuất TKB --</option>';
         this.classes.forEach(cls => {
-            const option = document.createElement('option');
-            option.value = cls;
-            option.textContent = `Lớp ${cls}`;
-            dropdown.appendChild(option);
+            const opt = document.createElement('option');
+            opt.value = cls;
+            opt.textContent = `Lớp ${cls}`;
+            dropdown.appendChild(opt);
         });
     }
 
-    findClassColumn(className) {
+    findClassLocation(className) {
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
-        
-        for (let row = range.s.r; row <= range.e.r; row++) {
-            for (let col = range.s.c; col <= range.e.c; col++) {
-                const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-                const cell = this.worksheet[cellAddress];
+        for (let r = range.s.r; r <= range.e.r; r++) {
+            for (let c = range.s.c; c <= range.e.c; c++) {
+                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && String(cell.v).trim() === className) {
-                    return { column: col, startRow: row };
+                    return { col: c, row: r };
                 }
             }
         }
@@ -141,95 +117,54 @@ class TKBConverter {
     }
 
     extractClassData(className) {
-        const location = this.findClassColumn(className);
-        if (!location) return null;
+        const loc = this.findClassLocation(className);
+        if (!loc) return null;
 
-        const { column, startRow } = location;
-        const schedule = {
-            morning: {},
-            afternoon: {}
-        };
-
-        // Khởi tạo cấu trúc
-        this.days.forEach(day => {
-            schedule.morning[day] = ['', '', '', '', ''];
-            schedule.afternoon[day] = ['', '', '', '', ''];
+        const schedule = { morning: {}, afternoon: {} };
+        this.days.forEach(d => {
+            schedule.morning[d] = ['', '', '', '', ''];
+            schedule.afternoon[d] = ['', '', '', '', ''];
         });
 
-        // Dò từ dòng tiếp theo sau tên lớp
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
-        let currentSession = 'morning';
-        let foundAfternoon = false;
+        let lastDay = 'Thứ 2';
 
-        for (let row = startRow + 1; row <= range.e.r; row++) {
-            const dayCell = this.worksheet[XLSX.utils.encode_cell({ r: row, c: 0 })];
-            const timeCell = this.worksheet[XLSX.utils.encode_cell({ r: row, c: 2 })];
-            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r: row, c: column })];
+        for (let r = loc.row + 1; r <= Math.min(loc.row + 55, range.e.r); r++) {
+            const dayCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 0 })];
+            const timeCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 2 })];
+            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
 
-            if (!dayCell || !timeCell || !subjectCell) continue;
-
-            const day = String(dayCell.v).trim();
-            const time = String(timeCell.v).trim();
-            const subject = String(subjectCell.v).trim();
-
-            // Kiểm tra buổi chiều
-            if (time.includes('C') || (foundAfternoon && day.startsWith('Thứ'))) {
-                currentSession = 'afternoon';
-                foundAfternoon = true;
-            } else if (day.startsWith('Thứ')) {
-                // Nếu gặp "Thứ" và chưa gặp "C", vẫn là buổi sáng
-                if (!time.includes('C')) currentSession = 'morning';
+            if (dayCell && dayCell.v && this.days.includes(String(dayCell.v).trim())) {
+                lastDay = String(dayCell.v).trim();
             }
 
-            // Kiểm tra xem có phải ngày học không
-            if (this.days.includes(day)) {
-                const timeMatch = time.match(/\d+/);
-                if (timeMatch) {
-                    const timeIndex = parseInt(timeMatch[0]) - 1;
-                    if (timeIndex >= 0 && timeIndex < 5) {
-                        const cleanSubject = this.cleanSubjectName(subject);
-                        schedule[currentSession][day][timeIndex] = cleanSubject;
-                    }
+            if (!timeCell || !timeCell.v) continue;
+
+            const timeVal = String(timeCell.v).trim();
+            const subjectVal = subjectCell && subjectCell.v ? String(subjectCell.v).trim() : '';
+
+            const isAfternoon = r > loc.row + 25 || timeVal.includes('C');
+            const session = isAfternoon ? 'afternoon' : 'morning';
+
+            const matchSlot = timeVal.match(/\d+/);
+            if (matchSlot) {
+                const slotIdx = parseInt(matchSlot[0]) - 1;
+                if (slotIdx >= 0 && slotIdx < 5) {
+                    schedule[session][lastDay][slotIdx] = this.cleanSubject(subjectVal);
                 }
-            }
-
-            // Dừng khi gặp lớp khác
-            if (day.match(/^10A\d+$/) && day !== className) {
-                break;
             }
         }
 
         return schedule;
     }
 
-    cleanSubjectName(subject) {
-        if (!subject) return '';
-
-        let cleaned = subject;
-
-        // Loại bỏ tên giáo viên (phần sau dấu - hoặc phần cuối)
-        if (cleaned.includes('-')) {
-            cleaned = cleaned.split('-')[0].trim();
-        }
-
-        // Chuẩn hóa tên môn học
-        const replacements = {
-            'Chào cờ': 'SHDC',
-            'HĐTNHN': 'HĐ TNHN',
-            'HĐ TNHN': 'HĐ TNHN',
-            'ND GDĐP': 'ND GDĐP',
-            'SHL': 'SHL',
-            'GDTC': 'GDTC',
-            'SHDC': 'SHDC'
-        };
-
-        for (let [original, replacement] of Object.entries(replacements)) {
-            if (cleaned.includes(original)) {
-                cleaned = cleaned.replace(original, replacement);
-            }
-        }
-
-        return cleaned.trim();
+    cleanSubject(raw) {
+        if (!raw) return '';
+        let s = raw.split('-')[0].trim();
+        s = s.replace('Chào cờ', 'SHDC')
+             .replace('HĐTNHN', 'HĐ TNHN')
+             .replace('ND GDĐP', 'GDĐP');
+        return s;
     }
 
     handleClassSelect(e) {
@@ -242,183 +177,119 @@ class TKBConverter {
 
         const statusDiv = document.getElementById('classStatus');
         statusDiv.className = 'status-message show info';
-        statusDiv.textContent = '⏳ Đang xử lý thời khóa biểu...';
+        statusDiv.textContent = '⏳ Đang trích xuất dữ liệu...';
 
-        // Xử lý bất đồng bộ
         setTimeout(() => {
-            try {
-                this.classData = this.extractClassData(this.selectedClass);
-                if (this.classData) {
-                    this.displayPreview();
-                    statusDiv.className = 'status-message show success';
-                    statusDiv.textContent = '✅ Thời khóa biểu sẵn sàng!';
-                    document.getElementById('previewSection').style.display = 'block';
-                    document.getElementById('exportSection').style.display = 'block';
-                } else {
-                    throw new Error('Không tìm thấy dữ liệu lớp này');
-                }
-            } catch (error) {
+            this.classData = this.extractClassData(this.selectedClass);
+            if (this.classData) {
+                this.renderPreview();
+                statusDiv.className = 'status-message show success';
+                statusDiv.textContent = '✅ Đã trích xuất thành công!';
+                document.getElementById('previewSection').style.display = 'block';
+                document.getElementById('exportSection').style.display = 'block';
+            } else {
                 statusDiv.className = 'status-message show error';
-                statusDiv.textContent = `❌ Lỗi: ${error.message}`;
-                console.error('Class processing error:', error);
+                statusDiv.textContent = '❌ Không tìm thấy dữ liệu lớp.';
             }
-        }, 100);
+        }, 50);
     }
 
-    displayPreview() {
-        const previewDiv = document.getElementById('previewTable');
-        let html = `<h3 style="margin-bottom: 15px;">Buổi Sáng</h3>`;
-        html += this.generateTableHTML(this.classData.morning);
-        html += `<h3 style="margin: 25px 0 15px 0;">Buổi Chiều</h3>`;
-        html += this.generateTableHTML(this.classData.afternoon);
-        previewDiv.innerHTML = html;
+    renderPreview() {
+        const preview = document.getElementById('previewTable');
+        preview.innerHTML = `
+            <h3 style="margin-bottom:10px;">Sáng</h3>
+            ${this.buildHTMLTable(this.classData.morning, 'S')}
+            <h3 style="margin:20px 0 10px 0;">Chiều</h3>
+            ${this.buildHTMLTable(this.classData.afternoon, 'C')}
+        `;
     }
 
-    generateTableHTML(schedule) {
-        let html = '<table class="preview-table"><thead><tr><th>Buổi</th><th>Tiết</th>';
-        this.days.forEach(day => html += `<th>${day}</th>`);
-        html += '</tr></thead><tbody>';
+    buildHTMLTable(data, sessionLabel) {
+        let html = `<table class="preview-table"><thead><tr><th>Buổi</th><th>Tiết</th>`;
+        this.days.forEach(d => html += `<th>${d}</th>`);
+        html += `</tr></thead><tbody>`;
 
-        this.timeSlots.morning.forEach((time, index) => {
-            html += `<tr><td>S</td><td>${time}</td>`;
-            this.days.forEach(day => {
-                const subject = schedule[day] ? schedule[day][index] : '';
-                html += `<td>${subject}</td>`;
+        for (let i = 0; i < 5; i++) {
+            html += `<tr><td>${sessionLabel}</td><td>${i + 1}</td>`;
+            this.days.forEach(d => {
+                html += `<td>${data[d][i] || ''}</td>`;
             });
-            html += '</tr>';
-        });
-
-        html += '</tbody></table>';
+            html += `</tr>`;
+        }
+        html += `</tbody></table>`;
         return html;
     }
 
     async exportToWord() {
         const exportBtn = document.getElementById('exportBtn');
         const statusDiv = document.getElementById('exportStatus');
-        
+
         exportBtn.disabled = true;
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '⏳ Đang tạo file Word...';
 
         try {
-            const sections = [];
+            const docxLib = window.docx;
+            const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
 
-            // Tạo bảng buổi sáng
-            sections.push(
-                new docx.Paragraph({
-                    text: `THỜI KHÓA BIỂU LỚP ${this.selectedClass} - BUỔI SÁNG`,
-                    bold: true,
-                    size: 24,
-                    alignment: docx.AlignmentType.CENTER,
-                    spacing: { after: 200 }
-                })
-            );
+            const makeTable = (data, sessionTitle) => {
+                const rows = [];
+                
+                const headerCells = [
+                    new TableCell({ children: [new Paragraph({ text: "Tiết", bold: true })], shading: { fill: "E0E0E0" } }),
+                    ...this.days.map(d => new TableCell({ children: [new Paragraph({ text: d, bold: true })], shading: { fill: "E0E0E0" } }))
+                ];
+                rows.push(new TableRow({ children: headerCells }));
 
-            sections.push(this.createScheduleTable(this.classData.morning));
+                for (let i = 0; i < 5; i++) {
+                    const cells = [
+                        new TableCell({ children: [new Paragraph({ text: `Tiết ${i + 1}`, bold: true })] }),
+                        ...this.days.map(d => new TableCell({ children: [new Paragraph({ text: data[d][i] || "" })] }))
+                    ];
+                    rows.push(new TableRow({ children: cells }));
+                }
 
-            sections.push(
-                new docx.Paragraph({
-                    text: `\nTHỜI KHÓA BIỂU LỚP ${this.selectedClass} - BUỔI CHIỀU`,
-                    bold: true,
-                    size: 24,
-                    alignment: docx.AlignmentType.CENTER,
-                    spacing: { before: 400, after: 200 }
-                })
-            );
+                return [
+                    new Paragraph({ text: sessionTitle, bold: true, size: 24, spacing: { before: 200, after: 100 } }),
+                    new Table({
+                        rows,
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 4 },
+                            bottom: { style: BorderStyle.SINGLE, size: 4 },
+                            left: { style: BorderStyle.SINGLE, size: 4 },
+                            right: { style: BorderStyle.SINGLE, size: 4 },
+                            insideHorizontal: { style: BorderStyle.SINGLE, size: 4 },
+                            insideVertical: { style: BorderStyle.SINGLE, size: 4 }
+                        }
+                    })
+                ];
+            };
 
-            sections.push(this.createScheduleTable(this.classData.afternoon));
-
-            // Tạo document
-            const doc = new docx.Document({
+            const doc = new Document({
                 sections: [{
-                    properties: {},
-                    children: sections
+                    children: [
+                        new Paragraph({ text: `THỜI KHÓA BIỂU - LỚP ${this.selectedClass}`, bold: true, size: 32, alignment: AlignmentType.CENTER }),
+                        ...makeTable(this.classData.morning, "BUỔI SÁNG"),
+                        ...makeTable(this.classData.afternoon, "BUỔI CHIỀU")
+                    ]
                 }]
             });
 
-            // Lưu file
-            const fileName = `TKB_Lop_${this.selectedClass}.docx`;
-            docx.Packer.toBlob(doc).then(blob => {
-                saveAs(blob, fileName);
-                exportBtn.disabled = false;
-                statusDiv.className = 'status-message show success';
-                statusDiv.textContent = `✅ Đã tải file ${fileName}!`;
-            });
+            const blob = await Packer.toBlob(doc);
+            saveAs(blob, `TKB_Lop_${this.selectedClass}.docx`);
 
-        } catch (error) {
+            exportBtn.disabled = false;
+            statusDiv.className = 'status-message show success';
+            statusDiv.textContent = '✅ Đã tải file Word về máy!';
+        } catch (err) {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
-            statusDiv.textContent = `❌ Lỗi: ${error.message}`;
-            console.error('Export error:', error);
+            statusDiv.textContent = `❌ Lỗi xuất file: ${err.message}`;
         }
-    }
-
-    createScheduleTable(schedule) {
-        const rows = [];
-
-        // Header row
-        const headerCells = [
-            new docx.TableCell({
-                children: [new docx.Paragraph({ text: 'Tiết', bold: true })],
-                shading: { fill: 'D3D3D3' }
-            })
-        ];
-
-        this.days.forEach(day => {
-            headerCells.push(
-                new docx.TableCell({
-                    children: [new docx.Paragraph({ text: day, bold: true })],
-                    shading: { fill: 'D3D3D3' }
-                })
-            );
-        });
-
-        rows.push(new docx.TableRow({ children: headerCells }));
-
-        // Data rows
-        this.timeSlots.morning.forEach((time, index) => {
-            const cells = [
-                new docx.TableCell({
-                    children: [new docx.Paragraph({ text: time, bold: true })],
-                    shading: { fill: 'E8E8E8' }
-                })
-            ];
-
-            this.days.forEach(day => {
-                const subject = (schedule[day] && schedule[day][index]) ? schedule[day][index] : '';
-                cells.push(
-                    new docx.TableCell({
-                        children: [new docx.Paragraph({ text: subject })]
-                    })
-                );
-            });
-
-            rows.push(new docx.TableRow({ children: cells }));
-        });
-
-        return new docx.Table({
-            rows: rows,
-            width: {
-                size: 100,
-                type: docx.WidthType.PERCENTAGE
-            },
-            borders: {
-                top: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' },
-                bottom: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' },
-                left: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' },
-                right: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' },
-                insideHorizontal: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' },
-                insideVertical: { style: docx.BorderStyle.SINGLE, size: 6, color: '000000' }
-            }
-        });
-    }
-
-    showClassSection() {
-        document.getElementById('classSection').style.display = 'block';
     }
 }
 
-// Khởi tạo ứng dụng khi tài liệu sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
     new TKBConverter();
 });
