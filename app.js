@@ -6,7 +6,46 @@ class TKBConverter {
         this.selectedClass = null;
         this.classData = null;
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        this.isDebug = false;
+        
         this.initEventListeners();
+        this.initDebugMode();
+    }
+
+    initDebugMode() {
+        const toggleBtn = document.getElementById('toggleDebugBtn');
+        const consoleDiv = document.getElementById('debugConsole');
+
+        // Bắt log hệ thống
+        const originalLog = console.log;
+        const originalError = console.error;
+
+        const appendLog = (type, msg) => {
+            if (!this.isDebug) return;
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'ERROR' ? '#fca5a5' : '#a7f3d0';
+            consoleDiv.innerHTML += `<div style="color: ${color}">[${time}] [${type}] ${msg}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+
+        console.log = (...args) => {
+            originalLog.apply(console, args);
+            appendLog('INFO', args.join(' '));
+        };
+
+        console.error = (...args) => {
+            originalError.apply(console, args);
+            appendLog('ERROR', args.join(' '));
+        };
+
+        toggleBtn.addEventListener('click', () => {
+            this.isDebug = !this.isDebug;
+            consoleDiv.style.display = this.isDebug ? 'block' : 'none';
+            toggleBtn.style.background = this.isDebug ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.1)';
+            toggleBtn.style.color = this.isDebug ? '#38bdf8' : '#cbd5e1';
+            toggleBtn.textContent = this.isDebug ? '🐛 Disable Debug' : '🐛 Enable Debug';
+            if (this.isDebug) console.log('Đã bật chế độ Debug.');
+        });
     }
 
     initEventListeners() {
@@ -55,6 +94,7 @@ class TKBConverter {
         const statusDiv = document.getElementById('fileStatus');
         statusDiv.className = 'file-status info';
         statusDiv.textContent = '⏳ Đang đọc file...';
+        console.log(`Đang đọc file: ${file.name} (${file.size} bytes)`);
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -63,13 +103,16 @@ class TKBConverter {
                 this.workbook = XLSX.read(data, { type: 'array' });
                 this.worksheet = this.workbook.Sheets[this.workbook.SheetNames[0]];
 
+                console.log(`Đã nạp worksheet. Range: ${this.worksheet['!ref'] || 'N/A'}`);
                 this.extractClasses();
+
                 statusDiv.className = 'file-status success';
                 statusDiv.textContent = `✅ Đã nhận diện ${this.classes.length} lớp.`;
                 document.getElementById('classSection').style.display = 'block';
             } catch (error) {
                 statusDiv.className = 'file-status error';
                 statusDiv.textContent = `❌ Lỗi đọc file: ${error.message}`;
+                console.error(`Lỗi processFile: ${error.stack || error.message}`);
             }
         };
         reader.readAsArrayBuffer(file);
@@ -91,6 +134,7 @@ class TKBConverter {
             }
         }
 
+        console.log(`Các lớp tìm thấy: ${this.classes.join(', ')}`);
         this.classes.sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
 
         const dropdown = document.getElementById('classDropdown');
@@ -109,10 +153,12 @@ class TKBConverter {
             for (let c = range.s.c; c <= range.e.c; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && String(cell.v).trim() === className) {
+                    console.log(`Tìm thấy vị trí lớp ${className} tại Dòng:${r + 1}, Cột:${c + 1}`);
                     return { col: c, row: r };
                 }
             }
         }
+        console.error(`Không tìm thấy ô chứa tên lớp: ${className}`);
         return null;
     }
 
@@ -178,6 +224,7 @@ class TKBConverter {
         const statusDiv = document.getElementById('classStatus');
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '⏳ Đang trích xuất dữ liệu...';
+        console.log(`Đã chọn lớp: ${this.selectedClass}`);
 
         setTimeout(() => {
             this.classData = this.extractClassData(this.selectedClass);
@@ -227,9 +274,14 @@ class TKBConverter {
         exportBtn.disabled = true;
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '⏳ Đang tạo file Word...';
+        console.log('Bắt đầu khởi tạo file Word...');
 
         try {
             const docxLib = window.docx;
+            if (!docxLib) {
+                throw new Error('Thư viện docx chưa được tải thành công từ CDN!');
+            }
+
             const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
 
             const makeTable = (data, sessionTitle) => {
@@ -282,10 +334,12 @@ class TKBConverter {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
             statusDiv.textContent = '✅ Đã tải file Word về máy!';
+            console.log('Xuất file Word thành công.');
         } catch (err) {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
             statusDiv.textContent = `❌ Lỗi xuất file: ${err.message}`;
+            console.error(`Lỗi exportToWord: ${err.stack || err.message}`);
         }
     }
 }
