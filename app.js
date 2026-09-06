@@ -7,6 +7,8 @@ class TKBConverter {
         this.classData = null;
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
         this.isDebug = false;
+        this.fileName = '';
+        this.appliedDateStr = '05/09/2026'; // Ngày mặc định nếu không tìm thấy trong tên file
         
         this.initDebugMode();
         this.initEventListeners();
@@ -64,7 +66,6 @@ class TKBConverter {
         const classDropdown = document.getElementById('classDropdown');
         const exportBtn = document.getElementById('exportBtn');
 
-        // Tối ưu cho iOS: Kích hoạt chọn file khi nhấn vào vùng upload
         if (uploadArea && fileInput) {
             uploadArea.addEventListener('click', (e) => {
                 if (e.target !== fileInput) {
@@ -87,7 +88,7 @@ class TKBConverter {
         }
 
         if (exportBtn) {
-            exportBtn.addEventListener('click', () => this.exportToWord());
+            exportBtn.addEventListener('click', () => this.exportToExcel());
         }
     }
 
@@ -149,6 +150,20 @@ class TKBConverter {
         }
     }
 
+    // Trích xuất ngày áp dụng từ tên file (Ví dụ tìm chuỗi: 05.09.2026 hoặc 05-09-2026)
+    extractDateFromFileName(fileName) {
+        this.fileName = fileName;
+        const dateMatch = fileName.match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{4})/);
+        if (dateMatch) {
+            const day = dateMatch[1].padStart(2, '0');
+            const month = dateMatch[2].padStart(2, '0');
+            const year = dateMatch[3];
+            this.appliedDateStr = `${day}/${month}/${year}`;
+        } else {
+            this.appliedDateStr = '05/09/2026';
+        }
+    }
+
     processFile(file) {
         const statusDiv = document.getElementById('fileStatus');
 
@@ -157,6 +172,8 @@ class TKBConverter {
             statusDiv.textContent = '🔴 Upload không thành công (File rỗng - 0 bytes)!';
             return;
         }
+
+        this.extractDateFromFileName(file.name);
 
         statusDiv.className = 'file-status info';
         statusDiv.textContent = `🔵 Đang đọc file: ${file.name}...`;
@@ -173,7 +190,7 @@ class TKBConverter {
 
                 if (this.classes.length > 0) {
                     statusDiv.className = 'file-status success';
-                    statusDiv.textContent = `🟢 Xử lý thành công! Đã nhận diện ${this.classes.length} lớp.`;
+                    statusDiv.textContent = `🟢 Xử lý thành công! Nhận diện ${this.classes.length} lớp (Ngày áp dụng: ${this.appliedDateStr}).`;
                     document.getElementById('classSection').style.display = 'block';
                 } else {
                     statusDiv.className = 'file-status error';
@@ -194,7 +211,6 @@ class TKBConverter {
         reader.readAsArrayBuffer(file);
     }
 
-    // Hàm đọc giá trị ô kể cả khi ô đó nằm trong khu vực Merged Cell (Ô gộp)
     getCellValue(r, c) {
         if (!this.worksheet) return '';
         
@@ -205,7 +221,6 @@ class TKBConverter {
             return String(cell.v).trim();
         }
 
-        // Nếu ô rỗng, kiểm tra xem ô này có thuộc vùng gộp (merges) nào không
         if (this.worksheet['!merges']) {
             for (let merge of this.worksheet['!merges']) {
                 if (r >= merge.s.r && r <= merge.e.r && c >= merge.s.c && c <= merge.e.c) {
@@ -345,7 +360,7 @@ class TKBConverter {
     renderPreview() {
         const preview = document.getElementById('previewTable');
         preview.innerHTML = `
-            <h3 style="margin: 10px 0; color: #38bdf8; text-align: center;">🌆 Thời Khóa Biểu Buổi Chiều</h3>
+            <h3 style="margin: 10px 0; color: #38bdf8; text-align: center;">🌆 Thời Khóa Biểu Buổi Chiều - Lớp ${this.selectedClass}</h3>
             <div class="preview-table-wrapper">
                 ${this.buildHTMLTable(this.classData.afternoon, 'C')}
             </div>
@@ -358,7 +373,11 @@ class TKBConverter {
         html += `</tr></thead><tbody>`;
 
         for (let i = 0; i < 5; i++) {
-            html += `<tr><td>${sessionLabel}</td><td>${i + 1}</td>`;
+            html += `<tr>`;
+            if (i === 0) {
+                html += `<td rowspan="5" style="vertical-align: middle; font-weight: bold;">${sessionLabel}</td>`;
+            }
+            html += `<td>${i + 1}</td>`;
             this.days.forEach(d => {
                 html += `<td>${data[d][i] || ''}</td>`;
             });
@@ -368,117 +387,72 @@ class TKBConverter {
         return html;
     }
 
-    async exportToWord() {
+    // Xuất Excel đúng chuẩn hình mẫu
+    exportToExcel() {
         const exportBtn = document.getElementById('exportBtn');
         const statusDiv = document.getElementById('exportStatus');
 
-        exportBtn.disabled = true;
-        statusDiv.className = 'status-message show info';
-        statusDiv.textContent = '🔵 Đang kết nối thư viện xuất Word...';
-
-        // Hàm kiểm tra biến toàn cục docx từ CDN
-        const getDocxLib = () => {
-            if (window.docx && window.docx.Document) return window.docx;
-            if (window.docx && window.docx.default && window.docx.default.Document) return window.docx.default;
-            if (window.Docx && window.Docx.Document) return window.Docx;
-            return null;
-        };
-
-        let docxLib = getDocxLib();
-
-        // Tự động nạp động thư viện bản UMD nếu chưa tìm thấy trên window
-        if (!docxLib) {
-            try {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdn.jsdelivr.net/npm/docx@7.8.2/build/index.umd.js';
-                    script.onload = () => resolve();
-                    script.onerror = () => reject(new Error('Lỗi kết nối CDN'));
-                    document.head.appendChild(script);
-                });
-                docxLib = getDocxLib();
-            } catch (err) {
-                exportBtn.disabled = false;
-                statusDiv.className = 'status-message show error';
-                statusDiv.textContent = `🔴 Không thể nạp thư viện Word: ${err.message}`;
-                return;
-            }
-        }
-
-        if (!docxLib || !docxLib.Document) {
-            exportBtn.disabled = false;
+        if (typeof XLSX === 'undefined') {
             statusDiv.className = 'status-message show error';
-            statusDiv.textContent = '🔴 Lỗi khởi tạo thư viện docx. Vui lòng thử tải lại trang!';
+            statusDiv.textContent = '🔴 Thư viện Excel chưa sẵn sàng. Vui lòng thử tải lại trang!';
             return;
         }
 
-        statusDiv.textContent = '🔵 Đang tạo và tải file Word...';
+        exportBtn.disabled = true;
+        statusDiv.className = 'status-message show info';
+        statusDiv.textContent = '🔵 Đang tạo file Excel chuẩn khung...';
 
         try {
-            const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
+            // Định dạng tên lớp theo mẫu (10A9 -> 10/9)
+            const classNumber = this.selectedClass.replace(/^10A/i, '');
+            const titleClassStr = `10/${classNumber}`;
 
-            const makeTable = (data, sessionTitle) => {
-                const rows = [];
-                
-                const headerCells = [
-                    new TableCell({ children: [new Paragraph({ text: "Tiết", bold: true })], shading: { fill: "E0E0E0" } }),
-                    ...this.days.map(d => new TableCell({ children: [new Paragraph({ text: d, bold: true })], shading: { fill: "E0E0E0" } }))
-                ];
-                rows.push(new TableRow({ children: headerCells }));
+            const headerTitle = `THỜI KHÓA BIỂU LỚP ${titleClassStr} NĂM HỌC 2026-2027 ÁP DỤNG NGÀY ${this.appliedDateStr}`;
 
-                for (let i = 0; i < 5; i++) {
-                    const cells = [
-                        new TableCell({ children: [new Paragraph({ text: `Tiết ${i + 1}`, bold: true })] }),
-                        ...this.days.map(d => new TableCell({ children: [new Paragraph({ text: data[d][i] || "" })] }))
-                    ];
-                    rows.push(new TableRow({ children: cells }));
-                }
+            // Cấu trúc dữ liệu mảng 2 chiều
+            const excelData = [
+                [headerTitle, "", "", "", "", "", ""], // Row 0: Dòng tiêu đề lớn
+                ["Buổi", "Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6"] // Row 1: Header bảng
+            ];
 
-                return [
-                    new Paragraph({ text: sessionTitle, bold: true, size: 24, spacing: { before: 200, after: 100 } }),
-                    new Table({
-                        rows,
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 4 },
-                            bottom: { style: BorderStyle.SINGLE, size: 4 },
-                            left: { style: BorderStyle.SINGLE, size: 4 },
-                            right: { style: BorderStyle.SINGLE, size: 4 },
-                            insideHorizontal: { style: BorderStyle.SINGLE, size: 4 },
-                            insideVertical: { style: BorderStyle.SINGLE, size: 4 }
-                        }
-                    })
-                ];
-            };
-
-            const doc = new Document({
-                sections: [{
-                    children: [
-                        new Paragraph({ text: `THỜI KHÓA BIỂU - LỚP ${this.selectedClass}`, bold: true, size: 32, alignment: AlignmentType.CENTER }),
-                        ...makeTable(this.classData.afternoon, "BUỔI CHIỀU")
-                    ]
-                }]
-            });
-
-            const blob = await Packer.toBlob(doc);
-
-            // Fallback hỗ trợ tải file mượt mà trên di động và mọi trình duyệt
-            if (window.saveAs) {
-                window.saveAs(blob, `TKB_Lop_${this.selectedClass}.docx`);
-            } else {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `TKB_Lop_${this.selectedClass}.docx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+            // Thêm 5 dòng tiết cho buổi chiều (C)
+            for (let i = 0; i < 5; i++) {
+                excelData.push([
+                    i === 0 ? "C" : "", // Dòng đầu chứa "C", các dòng sau để trống để chuẩn bị Merge
+                    i + 1,
+                    ...this.days.map(d => this.classData.afternoon[d][i] || "")
+                ]);
             }
+
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+            // Cấu hình Merged Cells (Gộp ô):
+            // 1. Dòng 0: Gộp Cột 0 (A) -> Cột 6 (G) làm tiêu đề chính
+            // 2. Cột 0 (Buổi): Gộp Dòng 2 (A3) -> Dòng 6 (A7) cho chữ C
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 2, c: 0 }, e: { r: 6, c: 0 } }
+            ];
+
+            // Thiết lập độ rộng cột
+            ws['!cols'] = [
+                { wch: 8 },  // Buổi
+                { wch: 8 },  // Tiết
+                { wch: 16 }, // Thứ 2
+                { wch: 16 }, // Thứ 3
+                { wch: 16 }, // Thứ 4
+                { wch: 16 }, // Thứ 5
+                { wch: 16 }  // Thứ 6
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `TKB_Lop_${this.selectedClass}`);
+
+            XLSX.writeFile(wb, `TKB_Lop_${this.selectedClass}.xlsx`);
 
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
-            statusDiv.textContent = '🟢 Xử lý thành công! File Word đã được tải về.';
+            statusDiv.textContent = '🟢 Xử lý thành công! File Excel đã được tải về.';
         } catch (err) {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
