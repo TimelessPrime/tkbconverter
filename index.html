@@ -23,21 +23,18 @@
                         <polyline points="17 8 12 3 7 8"></polyline>
                         <line x1="12" y1="3" x2="12" y2="15"></line>
                     </svg>
-                    <p class="upload-text">Kéo file Excel (.xlsx) vào đây hoặc</p>
-                    <label class="file-label">
-                        chọn file
-                        <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
-                    </label>
+                    <p class="upload-text">Kéo file Excel (.xlsx) vào đây hoặc <span class="file-label">chọn file</span></p>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
                 </div>
                 <div id="fileStatus" class="file-status"></div>
             </section>
 
-            <!-- Khu vực Debug tách biệt hoàn toàn -->
-            <section class="section" style="margin-top: -10px;">
-                <button id="toggleDebugBtn" type="button" class="btn" style="background: rgba(255,255,255,0.1); color: #cbd5e1; font-size: 0.85rem; padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer; pointer-events: auto; position: relative; z-index: 999;">
+            <!-- Khu vực Debug -->
+            <section class="section debug-section">
+                <button id="toggleDebugBtn" type="button" class="btn btn-debug">
                     🐛 Enable Debug
                 </button>
-                <div id="debugConsole" style="display: none; margin-top: 10px; padding: 12px; background: #090d16; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-family: monospace; font-size: 0.8rem; color: #a7f3d0; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></div>
+                <div id="debugConsole"></div>
             </section>
 
             <!-- Khu vực Chọn Lớp -->

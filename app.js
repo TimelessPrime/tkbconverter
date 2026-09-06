@@ -18,7 +18,6 @@ class TKBConverter {
 
         if (!toggleBtn || !consoleDiv) return;
 
-        // Bắt log hệ thống
         const originalLog = console.log;
         const originalError = console.error;
 
@@ -40,7 +39,6 @@ class TKBConverter {
             appendLog('ERROR', args.join(' '));
         };
 
-        // Gán sự kiện trực tiếp để chống bị chặn bởi bubbling
         toggleBtn.onclick = (e) => {
             if (e) {
                 e.preventDefault();
@@ -65,7 +63,11 @@ class TKBConverter {
         const classDropdown = document.getElementById('classDropdown');
         const exportBtn = document.getElementById('exportBtn');
 
-        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target !== fileInput) {
+                fileInput.click();
+            }
+        });
         uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
         uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
@@ -98,39 +100,79 @@ class TKBConverter {
     handleFileSelect(e) {
         if (e.target.files.length > 0) {
             this.processFile(e.target.files[0]);
+            // Reset giá trị input để có thể chọn lại cùng 1 file nếu cần
+            e.target.value = '';
         }
     }
 
     processFile(file) {
         const statusDiv = document.getElementById('fileStatus');
+
+        // Kiểm tra file rỗng hoặc 0 bytes
+        if (!file || file.size === 0) {
+            statusDiv.className = 'file-status error';
+            statusDiv.textContent = '🔴 Upload không thành công (File rỗng - 0 bytes). Vui lòng kiểm tra lại file hoặc đóng Excel nếu đang mở!';
+            console.error(`🔴 Upload không thành công. File: ${file ? file.name : 'Unknown'} (0 bytes)`);
+            return;
+        }
+
+        // 🔵 Đang đọc file
         statusDiv.className = 'file-status info';
-        statusDiv.textContent = '⏳ Đang đọc file...';
-        console.log(`Đang đọc file: ${file.name} (${file.size} bytes)`);
+        statusDiv.textContent = `🔵 Đang đọc file: ${file.name}...`;
+        console.log(`🔵 Đang đọc file: ${file.name}`);
 
         const reader = new FileReader();
+        
         reader.onload = (e) => {
             try {
+                // 🟢 Đọc file thành công với bytes
+                console.log(`🟢 Đọc file thành công với ${file.size} bytes`);
+
+                // 🔵 Đang xử lý
+                statusDiv.className = 'file-status info';
+                statusDiv.textContent = '🔵 Đang xử lý dữ liệu...';
+                console.log('🔵 Đang xử lý dữ liệu Excel...');
+
                 const data = new Uint8Array(e.target.result);
                 this.workbook = XLSX.read(data, { type: 'array' });
                 this.worksheet = this.workbook.Sheets[this.workbook.SheetNames[0]];
 
-                console.log(`Đã nạp worksheet. Range: ${this.worksheet['!ref'] || 'N/A'}`);
                 this.extractClasses();
 
-                statusDiv.className = 'file-status success';
-                statusDiv.textContent = `✅ Đã nhận diện ${this.classes.length} lớp.`;
-                document.getElementById('classSection').style.display = 'block';
+                if (this.classes.length > 0) {
+                    // 🟢 Xử lý thành công
+                    statusDiv.className = 'file-status success';
+                    statusDiv.textContent = `🟢 Xử lý thành công! Đã nhận diện ${this.classes.length} lớp.`;
+                    console.log(`🟢 Xử lý thành công. Đã tìm thấy ${this.classes.length} lớp.`);
+                    document.getElementById('classSection').style.display = 'block';
+                } else {
+                    // 🔴 Xử lý không thành công (Không tìm thấy danh sách lớp)
+                    statusDiv.className = 'file-status error';
+                    statusDiv.textContent = '🔴 Xử lý không thành công: Không tìm thấy dữ liệu lớp học phù hợp trong file!';
+                    console.error('🔴 Xử lý không thành công: Cấu trúc file Excel không khớp với định dạng lớp.');
+                }
+
             } catch (error) {
+                // 🔴 Xử lý không thành công (Lỗi cú pháp / Đọc sheet)
                 statusDiv.className = 'file-status error';
-                statusDiv.textContent = `❌ Lỗi đọc file: ${error.message}`;
-                console.error(`Lỗi processFile: ${error.stack || error.message}`);
+                statusDiv.textContent = `🔴 Xử lý không thành công: ${error.message}`;
+                console.error(`🔴 Xử lý không thành công: ${error.stack || error.message}`);
             }
         };
+
+        reader.onerror = () => {
+            statusDiv.className = 'file-status error';
+            statusDiv.textContent = '🔴 Upload không thành công. Không thể đọc tệp từ đĩa!';
+            console.error('🔴 Upload không thành công: Lỗi FileReader.');
+        };
+
         reader.readAsArrayBuffer(file);
     }
 
     extractClasses() {
         this.classes = [];
+        if (!this.worksheet || !this.worksheet['!ref']) return;
+
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
 
         for (let r = range.s.r; r <= range.e.r; r++) {
@@ -145,7 +187,6 @@ class TKBConverter {
             }
         }
 
-        console.log(`Các lớp tìm thấy: ${this.classes.join(', ')}`);
         this.classes.sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
 
         const dropdown = document.getElementById('classDropdown');
@@ -164,12 +205,10 @@ class TKBConverter {
             for (let c = range.s.c; c <= range.e.c; c++) {
                 const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
                 if (cell && String(cell.v).trim() === className) {
-                    console.log(`Tìm thấy vị trí lớp ${className} tại Dòng:${r + 1}, Cột:${c + 1}`);
                     return { col: c, row: r };
                 }
             }
         }
-        console.error(`Không tìm thấy ô chứa tên lớp: ${className}`);
         return null;
     }
 
@@ -234,20 +273,22 @@ class TKBConverter {
 
         const statusDiv = document.getElementById('classStatus');
         statusDiv.className = 'status-message show info';
-        statusDiv.textContent = '⏳ Đang trích xuất dữ liệu...';
-        console.log(`Đã chọn lớp: ${this.selectedClass}`);
+        statusDiv.textContent = '🔵 Đang xử lý trích xuất dữ liệu lớp...';
+        console.log(`🔵 Đang xử lý dữ liệu lớp: ${this.selectedClass}`);
 
         setTimeout(() => {
             this.classData = this.extractClassData(this.selectedClass);
             if (this.classData) {
                 this.renderPreview();
                 statusDiv.className = 'status-message show success';
-                statusDiv.textContent = '✅ Đã trích xuất thành công!';
+                statusDiv.textContent = '🟢 Xử lý thành công dữ liệu lớp!';
+                console.log(`🟢 Xử lý thành công dữ liệu cho lớp ${this.selectedClass}`);
                 document.getElementById('previewSection').style.display = 'block';
                 document.getElementById('exportSection').style.display = 'block';
             } else {
                 statusDiv.className = 'status-message show error';
-                statusDiv.textContent = '❌ Không tìm thấy dữ liệu lớp.';
+                statusDiv.textContent = '🔴 Xử lý không thành công: Không tìm thấy thời khóa biểu của lớp này!';
+                console.error(`🔴 Xử lý không thành công: Dữ liệu trống cho lớp ${this.selectedClass}`);
             }
         }, 50);
     }
@@ -284,8 +325,8 @@ class TKBConverter {
 
         exportBtn.disabled = true;
         statusDiv.className = 'status-message show info';
-        statusDiv.textContent = '⏳ Đang tạo file Word...';
-        console.log('Bắt đầu khởi tạo file Word...');
+        statusDiv.textContent = '🔵 Đang xử lý tạo file Word...';
+        console.log('🔵 Đang xử lý cấu trúc document Word...');
 
         try {
             const docxLib = window.docx;
@@ -344,13 +385,13 @@ class TKBConverter {
 
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
-            statusDiv.textContent = '✅ Đã tải file Word về máy!';
-            console.log('Xuất file Word thành công.');
+            statusDiv.textContent = '🟢 Xử lý thành công! File Word đã được tải về.';
+            console.log('🟢 Xử lý thành công xuất file Word.');
         } catch (err) {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
-            statusDiv.textContent = `❌ Lỗi xuất file: ${err.message}`;
-            console.error(`Lỗi exportToWord: ${err.stack || err.message}`);
+            statusDiv.textContent = `🔴 Xử lý không thành công: ${err.message}`;
+            console.error(`🔴 Xử lý không thành công: ${err.stack || err.message}`);
         }
     }
 }
