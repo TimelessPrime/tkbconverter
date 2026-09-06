@@ -2,9 +2,9 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TKB Converter - Chuyển Đổi Thời Khóa Biểu</title>
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=2.1">
 </head>
 <body>
     <div class="container">
@@ -28,9 +28,9 @@
                 </div>
 
                 <!-- Ô nhập Direct Link -->
-                <div style="margin-top: 15px; display: flex; gap: 10px;">
-                    <input type="url" id="fileUrlInput" placeholder="Hoặc dán Direct Link file Excel (.xlsx) tại đây..." style="flex: 1; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: #0f172a; color: #f8fafc; font-size: 0.9rem; outline: none;">
-                    <button id="loadUrlBtn" type="button" class="btn btn-primary" style="padding: 10px 18px; font-size: 0.85rem; white-space: nowrap;">
+                <div class="url-input-container">
+                    <input type="url" id="fileUrlInput" placeholder="Hoặc dán Direct Link file Excel (.xlsx) tại đây...">
+                    <button id="loadUrlBtn" type="button" class="btn btn-primary">
                         🔗 Tải từ Link
                     </button>
                 </div>
@@ -84,6 +84,6 @@
     <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
-    <script src="app.js?v=2.0"></script>
+    <script src="app.js?v=2.1"></script>
 </body>
 </html>
