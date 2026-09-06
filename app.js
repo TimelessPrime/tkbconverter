@@ -16,6 +16,8 @@ class TKBConverter {
         const toggleBtn = document.getElementById('toggleDebugBtn');
         const consoleDiv = document.getElementById('debugConsole');
 
+        if (!toggleBtn || !consoleDiv) return;
+
         // Bắt log hệ thống
         const originalLog = console.log;
         const originalError = console.error;
@@ -24,7 +26,7 @@ class TKBConverter {
             if (!this.isDebug) return;
             const time = new Date().toLocaleTimeString();
             const color = type === 'ERROR' ? '#fca5a5' : '#a7f3d0';
-            consoleDiv.innerHTML += `<div style="color: ${color}">[${time}] [${type}] ${msg}</div>`;
+            consoleDiv.innerHTML += `<div style="color: ${color}; margin-bottom: 2px;">[${time}] [${type}] ${msg}</div>`;
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
         };
 
@@ -38,13 +40,19 @@ class TKBConverter {
             appendLog('ERROR', args.join(' '));
         };
 
-        toggleBtn.addEventListener('click', () => {
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Ngăn sự kiện click lan ra ngoài gây lỗi
+
             this.isDebug = !this.isDebug;
             consoleDiv.style.display = this.isDebug ? 'block' : 'none';
-            toggleBtn.style.background = this.isDebug ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.1)';
+            toggleBtn.style.background = this.isDebug ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)';
             toggleBtn.style.color = this.isDebug ? '#38bdf8' : '#cbd5e1';
             toggleBtn.textContent = this.isDebug ? '🐛 Disable Debug' : '🐛 Enable Debug';
-            if (this.isDebug) console.log('Đã bật chế độ Debug.');
+            
+            if (this.isDebug) {
+                console.log('Chế độ Debug đã được bật.');
+            }
         });
     }
 

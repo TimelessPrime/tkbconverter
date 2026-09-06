@@ -36,7 +36,7 @@ header h1 {
     font-weight: 700;
     background: linear-gradient(135deg, #38bdf8, #34d399);
     -webkit-background-clip: text;
-    background-clip: text; /* Dòng này giúp sửa triệt để cảnh báo */
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -118,7 +118,7 @@ main {
     text-decoration: underline;
 }
 
-.file-status {
+.file-status, .status-message {
     margin-top: 15px;
     padding: 12px 16px;
     border-radius: 10px;
@@ -141,6 +141,22 @@ main {
     background: rgba(14, 165, 233, 0.15);
     color: #7dd3fc;
     border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Debug Wrapper & Console */
+.debug-wrapper {
+    margin-top: 15px;
+    position: relative;
+    z-index: 10;
+}
+
+#debugConsole::-webkit-scrollbar {
+    width: 5px;
+}
+
+#debugConsole::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.3);
+    border-radius: 3px;
 }
 
 /* Class Selector */
