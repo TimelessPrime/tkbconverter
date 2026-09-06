@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TKB Converter - Chuyển Đổi Thời Khóa Biểu</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📅 TKB Converter</h1>
+            <p class="subtitle">Hệ Thống Lọc & Chuyển Đổi Thời Khóa Biểu Cá Nhân</p>
+        </header>
+
+        <main>
+            <!-- Khu vực Tải File -->
+            <section class="section">
+                <h2>1️⃣ Tải File Excel</h2>
+                <div class="upload-area" id="uploadArea">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p class="upload-text">Kéo file Excel (.xlsx) vào đây hoặc</p>
+                    <label class="file-label">
+                        chọn file
+                        <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+                    </label>
+                </div>
+                <div id="fileStatus" class="file-status"></div>
+            </section>
+
+            <!-- Khu vực Chọn Lớp -->
+            <section class="section" id="classSection" style="display: none;">
+                <h2>2️⃣ Chọn Lớp</h2>
+                <div class="class-selector">
+                    <label for="classDropdown">Chọn Lớp:</label>
+                    <select id="classDropdown">
+                        <option value="">-- Vui lòng chọn lớp --</option>
+                    </select>
+                </div>
+                <div id="classStatus" class="status-message"></div>
+            </section>
+
+            <!-- Khu vực Xem Trước -->
+            <section class="section" id="previewSection" style="display: none;">
+                <h2>3️⃣ Xem Trước Bảng TKB</h2>
+                <div id="previewTable" class="preview-container"></div>
+            </section>
+
+            <!-- Khu vực Xuất File -->
+            <section class="section" id="exportSection" style="display: none;">
+                <h2>4️⃣ Xuất File Word</h2>
+                <button id="exportBtn" class="btn btn-primary">
+                    📥 Tải File Word
+                </button>
+                <div id="exportStatus" class="status-message"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>TKB Converter v1.0 | 100% Client-side | Chạy trên GitHub Pages</p>
+        </footer>
+    </div>
+
+    <!-- Nhúng thư viện từ CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <script src="app.js"></script>
+</body>
+</html>
