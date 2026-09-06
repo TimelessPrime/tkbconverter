@@ -124,28 +124,21 @@ class TKBConverter {
 
         statusDiv.className = 'file-status info';
         statusDiv.textContent = '🔵 Đang tải file từ URL...';
-        console.log(`🔵 Đang tải file từ link: ${url}`);
 
         try {
             const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP Error Status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
 
             const blob = await response.blob();
-            if (blob.size === 0) {
-                throw new Error('File tải về rỗng (0 bytes)');
-            }
+            if (blob.size === 0) throw new Error('File tải về rỗng (0 bytes)');
 
             const fileName = url.split('/').pop().split('?')[0] || 'TKB_Remote.xlsx';
             const file = new File([blob], fileName, { type: blob.type });
 
-            console.log(`🟢 Tải file từ URL thành công với ${blob.size} bytes`);
             this.processFile(file);
         } catch (err) {
             statusDiv.className = 'file-status error';
             statusDiv.textContent = `🔴 Upload không thành công. Lỗi kết nối URL hoặc CORS: ${err.message}`;
-            console.error(`🔴 Lỗi fetch file từ URL: ${err.message}`);
         }
     }
 
@@ -154,25 +147,17 @@ class TKBConverter {
 
         if (!file || file.size === 0) {
             statusDiv.className = 'file-status error';
-            statusDiv.textContent = '🔴 Upload không thành công (File rỗng - 0 bytes). Vui lòng kiểm tra lại file hoặc đóng Excel nếu đang mở!';
-            console.error(`🔴 Upload không thành công. File: ${file ? file.name : 'Unknown'} (0 bytes)`);
+            statusDiv.textContent = '🔴 Upload không thành công (File rỗng - 0 bytes)!';
             return;
         }
 
         statusDiv.className = 'file-status info';
         statusDiv.textContent = `🔵 Đang đọc file: ${file.name}...`;
-        console.log(`🔵 Đang đọc file: ${file.name}`);
 
         const reader = new FileReader();
         
         reader.onload = (e) => {
             try {
-                console.log(`🟢 Đọc file thành công với ${file.size} bytes`);
-
-                statusDiv.className = 'file-status info';
-                statusDiv.textContent = '🔵 Đang xử lý dữ liệu...';
-                console.log('🔵 Đang xử lý dữ liệu Excel...');
-
                 const data = new Uint8Array(e.target.result);
                 this.workbook = XLSX.read(data, { type: 'array' });
                 this.worksheet = this.workbook.Sheets[this.workbook.SheetNames[0]];
@@ -182,28 +167,51 @@ class TKBConverter {
                 if (this.classes.length > 0) {
                     statusDiv.className = 'file-status success';
                     statusDiv.textContent = `🟢 Xử lý thành công! Đã nhận diện ${this.classes.length} lớp.`;
-                    console.log(`🟢 Xử lý thành công. Đã tìm thấy ${this.classes.length} lớp.`);
                     document.getElementById('classSection').style.display = 'block';
                 } else {
                     statusDiv.className = 'file-status error';
-                    statusDiv.textContent = '🔴 Xử lý không thành công: Không tìm thấy dữ liệu lớp học phù hợp trong file!';
-                    console.error('🔴 Xử lý không thành công: Cấu trúc file Excel không khớp với định dạng lớp.');
+                    statusDiv.textContent = '🔴 Không tìm thấy dữ liệu lớp học phù hợp!';
                 }
 
             } catch (error) {
                 statusDiv.className = 'file-status error';
                 statusDiv.textContent = `🔴 Xử lý không thành công: ${error.message}`;
-                console.error(`🔴 Xử lý không thành công: ${error.stack || error.message}`);
             }
         };
 
         reader.onerror = () => {
             statusDiv.className = 'file-status error';
-            statusDiv.textContent = '🔴 Upload không thành công. Không thể đọc tệp từ đĩa!';
-            console.error('🔴 Upload không thành công: Lỗi FileReader.');
+            statusDiv.textContent = '🔴 Upload không thành công. Lỗi đọc file!';
         };
 
         reader.readAsArrayBuffer(file);
+    }
+
+    // Hàm đọc giá trị ô kể cả khi ô đó nằm trong khu vực Merged Cell (Ô gộp)
+    getCellValue(r, c) {
+        if (!this.worksheet) return '';
+        
+        const cellAddr = XLSX.utils.encode_cell({ r, c });
+        let cell = this.worksheet[cellAddr];
+
+        if (cell && cell.v !== undefined && cell.v !== null) {
+            return String(cell.v).trim();
+        }
+
+        // Nếu ô rỗng, kiểm tra xem ô này có thuộc vùng gộp (merges) nào không
+        if (this.worksheet['!merges']) {
+            for (let merge of this.worksheet['!merges']) {
+                if (r >= merge.s.r && r <= merge.e.r && c >= merge.s.c && c <= merge.e.c) {
+                    const masterCellAddr = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
+                    const masterCell = this.worksheet[masterCellAddr];
+                    if (masterCell && masterCell.v !== undefined) {
+                        return String(masterCell.v).trim();
+                    }
+                }
+            }
+        }
+
+        return '';
     }
 
     extractClasses() {
@@ -214,12 +222,9 @@ class TKBConverter {
 
         for (let r = range.s.r; r <= range.e.r; r++) {
             for (let c = range.s.c; c <= range.e.c; c++) {
-                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
-                if (cell && cell.v) {
-                    const val = String(cell.v).trim();
-                    if (/^10A\d+$/i.test(val) && !this.classes.includes(val)) {
-                        this.classes.push(val);
-                    }
+                const val = this.getCellValue(r, c);
+                if (/^10A\d+$/i.test(val) && !this.classes.includes(val)) {
+                    this.classes.push(val);
                 }
             }
         }
@@ -240,7 +245,8 @@ class TKBConverter {
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
         for (let r = range.s.r; r <= range.e.r; r++) {
             for (let c = range.s.c; c <= range.e.c; c++) {
-                const cell = this.worksheet[XLSX.utils.encode_cell({ r, c })];
+                const cellAddr = XLSX.utils.encode_cell({ r, c });
+                const cell = this.worksheet[cellAddr];
                 if (cell && String(cell.v).trim() === className) {
                     return { col: c, row: r };
                 }
@@ -259,55 +265,38 @@ class TKBConverter {
         });
 
         const range = XLSX.utils.decode_range(this.worksheet['!ref']);
-        let currentDay = 'Thứ 2';
 
-        // Đọc từ dòng ngay dưới ô Tên Lớp đến hết file
+        // Quét các dòng nằm dưới dòng chứa tên Lớp
         for (let r = loc.row + 1; r <= range.e.r; r++) {
+            // Lấy giá trị Cột 0 (Thứ), hỗ trợ gộp ô
+            const dayVal = this.getCellValue(r, 0); 
             
-            // 1. Kiểm tra Cột 0 (Cột A - Cột Thứ)
-            // Nếu phát hiện ô có giá trị Thứ (2, 3, 4, 5, 6) thì cập nhật `currentDay`
-            const dayCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 0 })];
-            if (dayCell && dayCell.v !== undefined && dayCell.v !== null) {
-                const valStr = String(dayCell.v).trim();
-                if (valStr) {
-                    const matchedDay = this.days.find(d => 
-                        valStr.toLowerCase().includes(d.toLowerCase()) || 
-                        valStr === d.replace('Thứ ', '').trim()
-                    );
-                    if (matchedDay) {
-                        currentDay = matchedDay;
-                    }
-                }
+            let currentDay = null;
+            if (dayVal) {
+                currentDay = this.days.find(d => 
+                    dayVal.toLowerCase().includes(d.toLowerCase()) || 
+                    dayVal === d.replace('Thứ ', '').trim()
+                );
             }
 
-            // 2. Kiểm tra Cột 2 (Cột C - Cột Tiết 1->5)
-            let slotIdx = -1;
-            const slotCell = this.worksheet[XLSX.utils.encode_cell({ r, c: 2 })];
-            if (slotCell && slotCell.v !== undefined && slotCell.v !== null) {
-                const match = String(slotCell.v).trim().match(/\d+/);
-                if (match) {
-                    const num = parseInt(match[0]);
-                    if (num >= 1 && num <= 5) {
-                        slotIdx = num - 1;
-                    }
-                }
+            if (!currentDay) continue;
+
+            // Lấy giá trị Cột 2 (Tiết 1 -> 5)
+            const tietVal = this.getCellValue(r, 2);
+            const match = tietVal.match(/\d+/);
+            if (!match) continue;
+
+            const slotIdx = parseInt(match[0]) - 1;
+            if (slotIdx < 0 || slotIdx > 4) continue;
+
+            // Đọc môn học đúng cột của lớp được chọn
+            const subjectVal = this.getCellValue(r, loc.col);
+            if (subjectVal) {
+                schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
             }
 
-            // Bỏ qua dòng nếu không đọc được số Tiết
-            if (slotIdx === -1) continue;
-
-            // 3. Lấy môn học đúng CỘT CỦA LỚP ĐÓ (`loc.col`)
-            const subjectCell = this.worksheet[XLSX.utils.encode_cell({ r, c: loc.col })];
-            if (subjectCell && subjectCell.v !== undefined && subjectCell.v !== null) {
-                const subjectVal = String(subjectCell.v).trim();
-                if (subjectVal) {
-                    schedule.afternoon[currentDay][slotIdx] = this.cleanSubject(subjectVal);
-                }
-            }
-            
-            // Dừng lại nếu gặp khối lớp tiếp theo ở bên dưới (ví dụ gặp ô ghi tên lớp khác ở cột A/B/C)
-            const checkNextBlock = this.worksheet[XLSX.utils.encode_cell({ r: r + 1, c: 0 })];
-            if (checkNextBlock && /^10A\d+$/i.test(String(checkNextBlock.v).trim())) {
+            // Nếu đọc xong tiết 5 của Thứ 6 thì dừng công việc trích xuất cho lớp này
+            if (currentDay === 'Thứ 6' && slotIdx === 4) {
                 break;
             }
         }
@@ -335,7 +324,6 @@ class TKBConverter {
         const statusDiv = document.getElementById('classStatus');
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '🔵 Đang xử lý trích xuất dữ liệu lớp...';
-        console.log(`🔵 Đang xử lý dữ liệu lớp: ${this.selectedClass}`);
 
         setTimeout(() => {
             this.classData = this.extractClassData(this.selectedClass);
@@ -343,13 +331,11 @@ class TKBConverter {
                 this.renderPreview();
                 statusDiv.className = 'status-message show success';
                 statusDiv.textContent = '🟢 Xử lý thành công dữ liệu lớp!';
-                console.log(`🟢 Xử lý thành công dữ liệu cho lớp ${this.selectedClass}`);
                 document.getElementById('previewSection').style.display = 'block';
                 document.getElementById('exportSection').style.display = 'block';
             } else {
                 statusDiv.className = 'status-message show error';
-                statusDiv.textContent = '🔴 Xử lý không thành công: Không tìm thấy thời khóa biểu của lớp này!';
-                console.error(`🔴 Xử lý không thành công: Dữ liệu trống cho lớp ${this.selectedClass}`);
+                statusDiv.textContent = '🔴 Không tìm thấy thời khóa biểu của lớp này!';
             }
         }, 50);
     }
@@ -385,13 +371,10 @@ class TKBConverter {
         exportBtn.disabled = true;
         statusDiv.className = 'status-message show info';
         statusDiv.textContent = '🔵 Đang xử lý tạo file Word...';
-        console.log('🔵 Đang xử lý cấu trúc document Word...');
 
         try {
             const docxLib = window.docx;
-            if (!docxLib) {
-                throw new Error('Thư viện docx chưa được tải thành công từ CDN!');
-            }
+            if (!docxLib) throw new Error('Thư viện docx chưa tải xong!');
 
             const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
 
@@ -444,12 +427,10 @@ class TKBConverter {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
             statusDiv.textContent = '🟢 Xử lý thành công! File Word đã được tải về.';
-            console.log('🟢 Xử lý thành công xuất file Word.');
         } catch (err) {
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
             statusDiv.textContent = `🔴 Xử lý không thành công: ${err.message}`;
-            console.error(`🔴 Xử lý không thành công: ${err.stack || err.message}`);
         }
     }
 }
