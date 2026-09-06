@@ -8,8 +8,8 @@ class TKBConverter {
         this.days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         this.isDebug = false;
         
-        this.initEventListeners();
         this.initDebugMode();
+        this.initEventListeners();
     }
 
     initDebugMode() {
@@ -40,9 +40,12 @@ class TKBConverter {
             appendLog('ERROR', args.join(' '));
         };
 
-        toggleBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // Ngăn sự kiện click lan ra ngoài gây lỗi
+        // Gán sự kiện trực tiếp để chống bị chặn bởi bubbling
+        toggleBtn.onclick = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
 
             this.isDebug = !this.isDebug;
             consoleDiv.style.display = this.isDebug ? 'block' : 'none';
@@ -53,7 +56,7 @@ class TKBConverter {
             if (this.isDebug) {
                 console.log('Chế độ Debug đã được bật.');
             }
-        });
+        };
     }
 
     initEventListeners() {

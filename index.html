@@ -30,14 +30,14 @@
                     </label>
                 </div>
                 <div id="fileStatus" class="file-status"></div>
+            </section>
 
-                <!-- Khung Debug nằm tách biệt bên dưới -->
-                <div style="margin-top: 15px; position: relative; z-index: 10;">
-                    <button id="toggleDebugBtn" type="button" class="btn" style="background: rgba(255,255,255,0.1); color: #cbd5e1; font-size: 0.85rem; padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer; display: inline-block;">
-                        🐛 Enable Debug
-                    </button>
-                    <div id="debugConsole" style="display: none; margin-top: 12px; padding: 12px; background: #090d16; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-family: monospace; font-size: 0.8rem; color: #a7f3d0; max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></div>
-                </div>
+            <!-- Khu vực Debug tách biệt hoàn toàn -->
+            <section class="section" style="margin-top: -10px;">
+                <button id="toggleDebugBtn" type="button" class="btn" style="background: rgba(255,255,255,0.1); color: #cbd5e1; font-size: 0.85rem; padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer; pointer-events: auto; position: relative; z-index: 999;">
+                    🐛 Enable Debug
+                </button>
+                <div id="debugConsole" style="display: none; margin-top: 10px; padding: 12px; background: #090d16; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-family: monospace; font-size: 0.8rem; color: #a7f3d0; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></div>
             </section>
 
             <!-- Khu vực Chọn Lớp -->
