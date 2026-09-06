@@ -372,17 +372,47 @@ class TKBConverter {
         const exportBtn = document.getElementById('exportBtn');
         const statusDiv = document.getElementById('exportStatus');
 
-        // Kiểm tra xem thư viện docx đã được tải thành công từ CDN chưa
-        const docxLib = window.docx;
+        exportBtn.disabled = true;
+        statusDiv.className = 'status-message show info';
+        statusDiv.textContent = '🔵 Đang kết nối thư viện xuất Word...';
+
+        // Hàm kiểm tra biến toàn cục docx từ CDN
+        const getDocxLib = () => {
+            if (window.docx && window.docx.Document) return window.docx;
+            if (window.docx && window.docx.default && window.docx.default.Document) return window.docx.default;
+            if (window.Docx && window.Docx.Document) return window.Docx;
+            return null;
+        };
+
+        let docxLib = getDocxLib();
+
+        // Tự động nạp động thư viện bản UMD nếu chưa tìm thấy trên window
         if (!docxLib) {
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/docx@7.8.2/build/index.umd.js';
+                    script.onload = () => resolve();
+                    script.onerror = () => reject(new Error('Lỗi kết nối CDN'));
+                    document.head.appendChild(script);
+                });
+                docxLib = getDocxLib();
+            } catch (err) {
+                exportBtn.disabled = false;
+                statusDiv.className = 'status-message show error';
+                statusDiv.textContent = `🔴 Không thể nạp thư viện Word: ${err.message}`;
+                return;
+            }
+        }
+
+        if (!docxLib || !docxLib.Document) {
+            exportBtn.disabled = false;
             statusDiv.className = 'status-message show error';
-            statusDiv.textContent = '🔴 Thư viện docx chưa tải xong hoặc kết nối CDN bị chặn. Vui lòng thử tải lại trang!';
+            statusDiv.textContent = '🔴 Lỗi khởi tạo thư viện docx. Vui lòng thử tải lại trang!';
             return;
         }
 
-        exportBtn.disabled = true;
-        statusDiv.className = 'status-message show info';
-        statusDiv.textContent = '🔵 Đang xử lý tạo file Word...';
+        statusDiv.textContent = '🔵 Đang tạo và tải file Word...';
 
         try {
             const { Document, Packer, Paragraph, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } = docxLib;
@@ -431,7 +461,20 @@ class TKBConverter {
             });
 
             const blob = await Packer.toBlob(doc);
-            saveAs(blob, `TKB_Lop_${this.selectedClass}.docx`);
+
+            // Fallback hỗ trợ tải file mượt mà trên di động và mọi trình duyệt
+            if (window.saveAs) {
+                window.saveAs(blob, `TKB_Lop_${this.selectedClass}.docx`);
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `TKB_Lop_${this.selectedClass}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
 
             exportBtn.disabled = false;
             statusDiv.className = 'status-message show success';
