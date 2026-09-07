@@ -55,7 +55,7 @@ Thứ 2| [trống] | Tiết 2 | HĐ TNHN | Tiếng Anh | Toán
 Truy cập trang web (hoặc mở trực tiếp file `index.html` trên trình duyệt):
 
 ```
-https://[username].github.io/tkbconverter/
+https://timelessprime.github.io/tkbconverter/
 ```
 
 ### 2. Tải File Excel
@@ -96,8 +96,8 @@ WebLocGioHoc/
 2. Clone về máy local:
 
 ```bash
-git clone https://github.com/[username]/tkbconverter.git
-cd WebLocGioHoc
+git clone https://github.com/timelessprime/tkbconverter.git
+cd tkbconverter
 ```
 
 3. Push mã nguồn lên GitHub:
