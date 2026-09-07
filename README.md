@@ -55,7 +55,7 @@ Thứ 2| [trống] | Tiết 2 | HĐ TNHN | Tiếng Anh | Toán
 Truy cập trang web (hoặc mở trực tiếp file `index.html` trên trình duyệt):
 
 ```
-https://[username].github.io/WebLocGioHoc/
+https://[username].github.io/tkbconverter/
 ```
 
 ### 2. Tải File Excel
@@ -96,7 +96,7 @@ WebLocGioHoc/
 2. Clone về máy local:
 
 ```bash
-git clone https://github.com/[username]/WebLocGioHoc.git
+git clone https://github.com/[username]/tkbconverter.git
 cd WebLocGioHoc
 ```
 
